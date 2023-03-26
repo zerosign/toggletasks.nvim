@@ -1,28 +1,42 @@
 local M = {}
 
-local lyaml = vim.F.npcall(require, 'lyaml')
+M.lyaml = vim.F.npcall(require, 'lyaml')
+-- local lyaml = pcall(require, 'lyaml')
+-- local lyaml = require('lyaml')
+
 local Path = require('plenary.path')
 local utils = require('toggletasks.utils')
+
+function load_lyaml()
+    if M.lyaml == nil then
+        M.lyaml = vim.F.npcall(require, 'lyaml')
+    end
+end
 
 local loaders = {
     json = vim.json.decode,
     yaml = function(s)
+        load_lyaml()
         -- Returns the first "YAML document"
-        return lyaml.load(s)
+        return M.lyaml.load(s)
     end,
 }
 
 local dumpers = {
     json = vim.json.encode,
     yaml = function(t)
+        load_lyaml()
         -- Expects a list of "YAML documents", so the dumped table must be wrapped in a list
-        return lyaml.dump { t }
+        return M.lyaml.dump { t }
     end,
 }
 
 function M.supported_extensions()
-    return lyaml and { 'json', 'yaml', 'yml' } or { 'json' }
+    load_lyaml()
+    return M.lyaml and { 'json', 'yaml', 'yml' } or { 'json' }
 end
+
+-- utils.warn(table.concat(M.supported_extensions()))
 
 local function get_ft(path)
     path = Path:new(path)
@@ -49,16 +63,19 @@ end
 -- Load configuration from a file with supported file format
 function M.load_config(file)
     local path = Path:new(file)
+
     if not path:exists() then
         utils.warn('Config file does not exist: %s', path:absolute())
         return
     end
 
+    load_lyaml()
+
     -- Dispatch by file extension
     local ft = get_ft(path)
     if not ft then
         return
-    elseif ft == 'yaml' and not lyaml then
+    elseif ft == 'yaml' and not M.lyaml then
         utils.warn_once('YAML support not available - "lyaml" is not installed - ignoring')
         return
     end
